@@ -2,14 +2,21 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+// 1. IMPORTAÇÕES NECESSÁRIAS PARA SERVIR O SITE
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
+
+// 2. CONFIGURAÇÃO DE CAMINHOS (Pois você está usando "type": "module")
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; // O Render exige process.env.PORT
 
 // AQUI ESTÁ A BIOGRAFIA DO RUAN
 const RUAN_BIO = `
@@ -28,31 +35,36 @@ DADOS REAIS DO RUAN (Use isso para responder):
 Regra de Ouro: Se perguntarem algo fora desse contexto, diga que é uma IA focada na carreira do Ruan e sugira o contato pelo WhatsApp.
 `;
 
-// Inicialização do Gemini com a Instrução de Sistema
+// Inicialização do Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({
-    model: "gemini-2.5-flash",
+    // VOLTEI PARA 1.5-flash-001 (2.5 vai dar erro 404 se não existir na sua conta)
+    model: "gemini-2.5-flash-001",
     systemInstruction: RUAN_BIO
 });
+
+// 3. O "PULO DO GATO" PARA O RENDER FUNCIONAR
+// Serve os arquivos da pasta 'dist' (que o comando 'npm run build' cria)
+app.use(express.static(path.join(__dirname, 'dist')));
 
 app.post('/api/chat', async (req, res) => {
     try {
         const { message } = req.body;
-
-        // Inicia o chat (sem histórico por enquanto para economizar tokens, ou pode adicionar history: [])
-        const chat = model.startChat({
-            history: [],
-        });
-
+        const chat = model.startChat({ history: [] });
         const result = await chat.sendMessage(message);
         const response = await result.response;
-        const text = response.text();
 
-        res.json({ reply: text });
+        res.json({ reply: response.text() });
     } catch (error) {
         console.error('Erro na IA:', error);
         res.status(500).json({ error: 'Erro ao processar mensagem' });
     }
+});
+
+// 4. ROTA FINAL (FALLBACK)
+// Qualquer acesso que não for /api/chat vai devolver o site
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 app.listen(PORT, () => {
