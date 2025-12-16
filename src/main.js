@@ -56,7 +56,7 @@ class ChatBot {
     this.sendBtn = document.getElementById('chat-send-btn');
 
     this.isOpen = false;
-    this.apiUrl = 'http://localhost:3000/api/chat';
+    this.apiUrl = '/api/chat';
 
     this.init();
   }
